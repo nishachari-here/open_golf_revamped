@@ -4,6 +4,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+// gameplay state objects
+const gameState = {
+  currentHole: 1,
+  totalHoles: 2,
+  strokes: 0,
+  par: [3, 4] // par values for hole 1 and hole 2
+};
+
 // canvas element
 const canvas = document.querySelector('#bg');
 const renderer = new THREE.WebGLRenderer({
@@ -222,6 +230,8 @@ window.addEventListener('mouseup', (event) => {
 
   const power = dragVector.length() * 0.005; // reduced power
   ballVelocity.copy(dir.multiplyScalar(power));
+  gameState.strokes++;
+  console.log(`Stroke ${gameState.strokes}`);
 
   if (arrowHelper) {
     scene.remove(arrowHelper);
@@ -273,24 +283,24 @@ function animate() {
   // Bounce with walls
   const fieldHalfWidth = lawnWidth / 2;
   const fieldHalfHeight = lawnHeight / 2;
+  const ballRadius = 0.5;
 
-  if (golfBall.position.x > fieldHalfWidth) {
-    golfBall.position.x = fieldHalfWidth;
+  if (golfBall.position.x > fieldHalfWidth - ballRadius) {
+    golfBall.position.x = fieldHalfWidth - ballRadius;
     ballVelocity.x *= -0.7;
   }
-  if (golfBall.position.x < -fieldHalfWidth) {
-    golfBall.position.x = -fieldHalfWidth;
+  if (golfBall.position.x < -fieldHalfWidth + ballRadius) {
+    golfBall.position.x = -fieldHalfWidth + ballRadius;
     ballVelocity.x *= -0.7;
   }
-  if (golfBall.position.z > fieldHalfHeight) {
-    golfBall.position.z = fieldHalfHeight;
+  if (golfBall.position.z > fieldHalfHeight - ballRadius) {
+    golfBall.position.z = fieldHalfHeight - ballRadius;
     ballVelocity.z *= -0.7;
   }
-  if (golfBall.position.z < -fieldHalfHeight) {
-    golfBall.position.z = -fieldHalfHeight;
+  if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
+    golfBall.position.z = -fieldHalfHeight + ballRadius;
     ballVelocity.z *= -0.7;
   }
-
   // Friction
   ballVelocity.multiplyScalar(friction);
   if (ballVelocity.length() < 0.001) {
