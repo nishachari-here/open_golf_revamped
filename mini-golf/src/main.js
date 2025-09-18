@@ -14,6 +14,7 @@ const renderer = new THREE.WebGLRenderer({
 // Set the renderer size
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
 
 // Camera and scene setup
 const scene = new THREE.Scene();
@@ -22,7 +23,8 @@ const aspect = window.innerWidth / window.innerHeight;
 const near = 0.1;
 const far = 1000;
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-camera.position.set(0, 0, 0);
+camera.position.set(0, 20, 40);
+camera.lookAt(0, 0, 0);
 
 //Light Setup
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -93,6 +95,7 @@ const ballMaterial = new THREE.MeshStandardMaterial({
 const golfBall = new THREE.Mesh(ballGeometry, ballMaterial);
 scene.add(golfBall);
 golfBall.position.set(0, 0.5, 20);
+golfBall.castShadow = true;
 
 // Models
 const modelPaths = [
@@ -142,7 +145,7 @@ let isDragging = false;
 let dragStart = new THREE.Vector2();
 let arrowHelper = null;
 let ballVelocity = new THREE.Vector3(0, 0, 0);
-const friction = 0.98;
+const friction = 0.99;
 let inHole = false;
 
 // Raycaster
@@ -255,7 +258,10 @@ function animate() {
 
   if (ballPos.distanceTo(holePos) < holeRadius * 0.6) {
     if (golfBall.position.y > -holeDepth) {
-      golfBall.position.y -= 0.05; // sink into hole
+      golfBall.position.lerp(
+        new THREE.Vector3(hole.position.x, -holeDepth, hole.position.z),
+        0.1 // controls sinking speed
+      );
     } else {
       inHole = true;
       ballVelocity.set(0, 0, 0);
