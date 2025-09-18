@@ -4,47 +4,40 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-
-
 // canvas element
 const canvas = document.querySelector('#bg');
 const renderer = new THREE.WebGLRenderer({
   canvas: canvas,
-  antialias: true // Optional: Improves visual quality
+  antialias: true
 });
 
 // Set the renderer size
-renderer.setSize( window.innerWidth, window.innerHeight );
-renderer.setPixelRatio( window.devicePixelRatio );
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
 
 // Camera and scene setup
 const scene = new THREE.Scene();
-const fov = 75; // Field of view
-const aspect = window.innerWidth / window.innerHeight; // Aspect ratio
-const near = 0.1; // Near clipping plane
-const far = 1000; // Far clipping plane
+const fov = 75;
+const aspect = window.innerWidth / window.innerHeight;
+const near = 0.1;
+const far = 1000;
 const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-camera.position.set(0, 0, 0); 
+camera.position.set(0, 0, 0);
 
 //Light Setup
-// Add ambient light to the scene
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); 
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-// Add directional light to the scene
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 10, 7.5); // Position the light source
-directionalLight.castShadow = true; // Enable shadows
+directionalLight.position.set(5, 10, 7.5);
+directionalLight.castShadow = true;
 scene.add(directionalLight);
 
-// Instantiate OrbitControls
+// Controls
 const controls = new OrbitControls(camera, renderer.domElement);
-
-// Optional: Customize controls (remove these lines for default behavior)
-controls.enableDamping = true; // Provides a smooth, flywheel-like effect
+controls.enableDamping = true;
 controls.dampingFactor = 0.05;
-// controls.screenSpacePanning = false; // Prevents panning if you only want orbit/zoom
-controls.maxPolarAngle = Math.PI / 2; // Prevents camera from going below the ground
+controls.maxPolarAngle = Math.PI / 2;
 
 //skybox
 const cubeTextureLoader = new THREE.CubeTextureLoader();
@@ -60,144 +53,246 @@ scene.background = skyboxTexture;
 
 const loader = new GLTFLoader();
 
-// Create a large plane to represent the green surface
-const planeGeometry = new THREE.PlaneGeometry(20, 60); 
+// Green surface
+const planeGeometry = new THREE.PlaneGeometry(20, 60);
 const planeMaterial = new THREE.MeshStandardMaterial({
-  color: '#A9D649', // A green color (hex code for dark green)
-  side: THREE.DoubleSide // Makes the plane visible from both top and bottom
+  color: '#A9D649',
+  side: THREE.DoubleSide
 });
 const greenSurface = new THREE.Mesh(planeGeometry, planeMaterial);
 greenSurface.rotation.x = -Math.PI / 2;
 greenSurface.receiveShadow = true;
 scene.add(greenSurface);
 
-// Define the geometry for the hole
-const holeRadius = 0.75; // Slightly larger than the ball radius
-const holeHeight = 0.5; // Depth of the hole
-const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeHeight, 32); 
+// Hole (bigger + deeper)
+const holeRadius = 1.2;
+const holeDepth = 1;
+const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);
 const holeMaterial = new THREE.MeshStandardMaterial({
-  color: 0x0a0a0a, // A dark grey or black color
-  side: THREE.DoubleSide // Makes the hole visible from both top and bottom
+  color: 0x0a0a0a,
+  side: THREE.DoubleSide
 });
 const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-hole.position.set(0, -holeHeight / 2, -20); 
+hole.position.set(0, -holeDepth / 2, -20);
 scene.add(hole);
 
-// Load the glb model
+// Load GLTF model
 function loadModel(path) {
   return new Promise((resolve, reject) => {
     loader.load(path, resolve, undefined, reject);
   });
 }
 
-//golf ball
-const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32); 
+// Golf ball
+const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
 const ballMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffffff, // White color for the ball
+  color: 0xffffff,
   roughness: 0.4,
   metalness: 0.2
 });
 const golfBall = new THREE.Mesh(ballGeometry, ballMaterial);
 scene.add(golfBall);
-golfBall.position.set(0, 0.5, 20); // Position the ball above the plane
+golfBall.position.set(0, 0.5, 20);
 
-// An array of your model paths
+// Models
 const modelPaths = [
-  //'./models/golf_ball.glb',
   './models/low_poly_golf_flag_animated.glb',
-  //'./models/hole.glb',
 ];
 
-
-// Border properties
+// Borders
 const lawnWidth = 20;
 const lawnHeight = 60;
-const borderWidth = 1; // Thickness of the border
-const borderHeight = 1; // Height of the border
+const borderWidth = 1;
+const borderHeight = 1;
 
-// Create a material for the borders
 const borderMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8B4513 // Brown color for a rustic look
+  color: 0x8B4513
 });
 
-// Create the four border meshes
-// Top Border (along Z-axis)
+// Top Border
 const topBorderGeometry = new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth);
 const topBorder = new THREE.Mesh(topBorderGeometry, borderMaterial);
 topBorder.position.set(0, borderHeight / 2, -lawnHeight / 2 - borderWidth / 2);
 topBorder.castShadow = true;
 scene.add(topBorder);
 
-// Bottom Border (along Z-axis)
+// Bottom Border
 const bottomBorderGeometry = new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth);
 const bottomBorder = new THREE.Mesh(bottomBorderGeometry, borderMaterial);
 bottomBorder.position.set(0, borderHeight / 2, lawnHeight / 2 + borderWidth / 2);
 bottomBorder.castShadow = true;
 scene.add(bottomBorder);
 
-// Left Border (along X-axis)
+// Left Border
 const leftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight);
 const leftBorder = new THREE.Mesh(leftBorderGeometry, borderMaterial);
 leftBorder.position.set(-lawnWidth / 2 - borderWidth / 2, borderHeight / 2, 0);
 leftBorder.castShadow = true;
 scene.add(leftBorder);
 
-// Right Border (along X-axis)
+// Right Border
 const rightBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight);
 const rightBorder = new THREE.Mesh(rightBorderGeometry, borderMaterial);
 rightBorder.position.set(lawnWidth / 2 + borderWidth / 2, borderHeight / 2, 0);
 rightBorder.castShadow = true;
 scene.add(rightBorder);
 
+// Physics variables
+let isDragging = false;
+let dragStart = new THREE.Vector2();
+let arrowHelper = null;
+let ballVelocity = new THREE.Vector3(0, 0, 0);
+const friction = 0.98;
+let inHole = false;
 
+// Raycaster
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+// Mouse down
+window.addEventListener('mousedown', (event) => {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObject(golfBall);
+
+  if (intersects.length > 0) {
+    isDragging = true;
+    dragStart.set(event.clientX, event.clientY);
+
+    controls.enabled = false; // freeze camera while aiming
+
+    if (arrowHelper) {
+      scene.remove(arrowHelper);
+      arrowHelper = null;
+    }
+  }
+});
+
+// Mouse move
+window.addEventListener('mousemove', (event) => {
+  if (!isDragging) return;
+
+  const dragEnd = new THREE.Vector2(event.clientX, event.clientY);
+  const dragVector = new THREE.Vector2().subVectors(dragEnd, dragStart);
+
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  camDir.y = 0;
+  camDir.normalize();
+
+  const camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
+
+  // Pull back = forward (invert Y only)
+  const dir = new THREE.Vector3()
+    .addScaledVector(camDir, dragVector.y)
+    .addScaledVector(camRight, dragVector.x)
+    .normalize();
+
+  if (arrowHelper) scene.remove(arrowHelper);
+
+  const power = dragVector.length() * 0.005; // reduced power
+  arrowHelper = new THREE.ArrowHelper(dir, golfBall.position, power * 5, 0xff0000, 2, 2);
+  scene.add(arrowHelper);
+});
+
+// Mouse up
+window.addEventListener('mouseup', (event) => {
+  if (!isDragging) return;
+  isDragging = false;
+
+  const dragEnd = new THREE.Vector2(event.clientX, event.clientY);
+  const dragVector = new THREE.Vector2().subVectors(dragEnd, dragStart);
+
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  camDir.y = 0;
+  camDir.normalize();
+
+  const camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
+
+  const dir = new THREE.Vector3()
+    .addScaledVector(camDir, dragVector.y)
+    .addScaledVector(camRight, dragVector.x)
+    .normalize();
+
+  const power = dragVector.length() * 0.005; // reduced power
+  ballVelocity.copy(dir.multiplyScalar(power));
+
+  if (arrowHelper) {
+    scene.remove(arrowHelper);
+    arrowHelper = null;
+  }
+
+  controls.enabled = true; // re-enable camera after shot
+});
+
+// Load models
 Promise.all(modelPaths.map(path => loadModel(path)))
   .then(models => {
-    //const golfball = models[0].scene;
     const flagModel = models[0].scene;
-    //const holeModel = models[2].scene;
-    
-
-   
-    
-    // Get the center of the bounding box
-
-   // holeModel.position.set(0, 0,-20); 
-    //golfball.position.set(0, 0, 20);
-    flagModel.position.set(-2.5, 14.5, -21.5); 
-    
-
-    //golfball.scale.set(0.02, 0.02, 0.02);
-    flagModel.scale.set(7.5,7.5,7.5);
-    
-    
-    
-    
+    flagModel.position.set(-2.5, 14.5, -21.5);
+    flagModel.scale.set(7.5, 7.5, 7.5);
     scene.add(flagModel);
-    //scene.add(holeModel);
-    //scene.add(golfball);
-
   });
 
-// The render loop
+// Animate
 function animate() {
-    requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
 
-    // This line is crucial for OrbitControls to work
-    controls.target.set(0, 0, -20); // Point the camera to the center of the golf course
-    controls.update()
+  controls.target.copy(golfBall.position);
+  controls.update();
+  renderer.render(scene, camera);
 
-    // Get the real-time position of the camera
-    const cameraPosition = camera.position;
-    
-    // Log the x, y, and z coordinates
-    console.log(`Camera Position: x=${cameraPosition.x.toFixed(2)}, y=${cameraPosition.y.toFixed(2)}, z=${cameraPosition.z.toFixed(2)}`);
+  if (inHole) return;
 
-    renderer.render(scene, camera);
+  golfBall.position.add(ballVelocity);
+
+  // Hole detection
+  const holePos = new THREE.Vector2(hole.position.x, hole.position.z);
+  const ballPos = new THREE.Vector2(golfBall.position.x, golfBall.position.z);
+
+  if (ballPos.distanceTo(holePos) < holeRadius * 0.6) {
+    if (golfBall.position.y > -holeDepth) {
+      golfBall.position.y -= 0.05; // sink into hole
+    } else {
+      inHole = true;
+      ballVelocity.set(0, 0, 0);
+      golfBall.position.set(hole.position.x, -holeDepth, hole.position.z);
+      console.log("Ball in hole! 🏌️‍♂️");
+    }
+  }
+
+  // Bounce with walls
+  const fieldHalfWidth = lawnWidth / 2;
+  const fieldHalfHeight = lawnHeight / 2;
+
+  if (golfBall.position.x > fieldHalfWidth) {
+    golfBall.position.x = fieldHalfWidth;
+    ballVelocity.x *= -0.7;
+  }
+  if (golfBall.position.x < -fieldHalfWidth) {
+    golfBall.position.x = -fieldHalfWidth;
+    ballVelocity.x *= -0.7;
+  }
+  if (golfBall.position.z > fieldHalfHeight) {
+    golfBall.position.z = fieldHalfHeight;
+    ballVelocity.z *= -0.7;
+  }
+  if (golfBall.position.z < -fieldHalfHeight) {
+    golfBall.position.z = -fieldHalfHeight;
+    ballVelocity.z *= -0.7;
+  }
+
+  // Friction
+  ballVelocity.multiplyScalar(friction);
+  if (ballVelocity.length() < 0.001) {
+    ballVelocity.set(0, 0, 0);
+  }
 }
 
-
-// Start the animation loop
+// Start loop
 animate();
-
 
 setupCounter(document.querySelector('#counter'))
