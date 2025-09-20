@@ -498,7 +498,7 @@ function animate() {
   }
 
 
-  // walls bounce
+ if(gameState.currentHole === 1){
   const ballRadius = 0.5;
   const fieldHalfWidth = lawnWidth / 2;
   const fieldHalfHeight = lawnHeight / 2;
@@ -517,7 +517,7 @@ function animate() {
   if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
     golfBall.position.z = -fieldHalfHeight + ballRadius;
     ballVelocity.z *= -0.7;
-  }
+  }}
 
   // friction
   ballVelocity.multiplyScalar(friction);
