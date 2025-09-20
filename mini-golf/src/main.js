@@ -3,6 +3,7 @@ import { setupCounter } from './counter.js'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { add } from 'three/src/nodes/TSL.js';
 
 // gameplay state
 const gameState = {
@@ -337,23 +338,116 @@ function loadLevel1() {
 }
 
 // You already have loadLevel2, keep it but also show the in-game menu
+const arm1Width = 20;
+const arm1Height = 40;
+const arm2Width = 40;
+const arm2Height = 20;
+
+const lawnMaterial = new THREE.MeshStandardMaterial({
+  color: '#A9D649',
+  side: THREE.DoubleSide
+});
+
+// Create the first arm of the 'L'
+const arm1Geometry = new THREE.PlaneGeometry(arm1Width, arm1Height);
+const arm1 = new THREE.Mesh(arm1Geometry, lawnMaterial);
+arm1.rotation.x = -Math.PI / 2;
+arm1.position.set(0, 0, 0); // Adjust position to form the 'L'
+arm1.receiveShadow = true;
+
+// Create the second arm of the 'L'
+const arm2Geometry = new THREE.PlaneGeometry(arm2Width, arm2Height);
+const arm2 = new THREE.Mesh(arm2Geometry, lawnMaterial);
+arm2.rotation.x = -Math.PI / 2;
+arm2.position.set(-10, 0, -30); // Position relative to the first arm
+arm2.receiveShadow = true;
+
+
+const borderMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8B4513 // Brown color for a brick-like look
+});
+
+const borderWidth = 1;
+const borderHeight = 1;
+
+const arm1RightBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, arm1Height+20);
+const arm1RightBorder = new THREE.Mesh(arm1RightBorderGeometry, borderMaterial);
+arm1RightBorder.position.set(arm1Width / 2 + borderWidth / 2, borderHeight / 2, -10);
+arm1RightBorder.castShadow = true;
+
+ inGameMenuOverlay.style.display = 'block';
+
+const arm1LeftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, arm1Height);
+const arm1LeftBorder = new THREE.Mesh(arm1LeftBorderGeometry, borderMaterial);
+arm1LeftBorder.position.set(-arm1Width / 2 - borderWidth / 2, borderHeight / 2, 0);
+arm1LeftBorder.castShadow = true;
+
+const bottomBorder = new THREE.Mesh(new THREE.BoxGeometry(arm1Width + borderWidth * 2, borderHeight, borderWidth), borderMaterial);
+  bottomBorder.position.set(0, borderHeight / 2, arm1Width / 2 + borderWidth / 2+10);
+  
+  const arm2LeftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, arm2Height);
+const arm2LeftBorder = new THREE.Mesh(arm2LeftBorderGeometry, borderMaterial);
+arm2LeftBorder.position.set(-10 - arm2Width / 2 - borderWidth / 2, borderHeight / 2, -30);
+arm2LeftBorder.castShadow = true;
+
+const arm2BottomBorderGeometry = new THREE.BoxGeometry(20, borderHeight, borderWidth);
+const arm2Bottom = new THREE.Mesh(arm2BottomBorderGeometry, borderMaterial);
+arm2Bottom.position.set(-20, borderHeight / 2, -30 + arm2Height / 2 + borderWidth / 2);
+arm2Bottom.castShadow = true;
+
+const arm2TopBorderGeometry = new THREE.BoxGeometry(arm2Width, borderHeight, borderWidth);
+const arm2Top = new THREE.Mesh(arm2TopBorderGeometry, borderMaterial);
+arm2Top.position.set(-10, 0, -40);
+arm2Top.castShadow = true;
+
+ 
+
+const triangleLegLength = 20;
+const triangleLegWidth = 1; // Same as your border width
+const triangleLegHeight = 1; // Same as your border height
+
+const triangleMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8B4513 // Brown color
+});
+
+const hypotenuseLength = Math.sqrt(Math.pow(triangleLegLength, 2) + Math.pow(triangleLegLength, 2));
+
+// Create the hypotenuse
+const hypotenuseGeometry = new THREE.BoxGeometry(hypotenuseLength, triangleLegHeight, triangleLegWidth);
+const hypotenuse = new THREE.Mesh(hypotenuseGeometry, triangleMaterial);
+
+// Position and rotate the hypotenuse
+hypotenuse.position.set(0, triangleLegHeight / 2, -30); // Position it at the center of the diagonal
+hypotenuse.rotation.y = -Math.PI / 4; // Rotate it by -45 degrees
+hypotenuse.castShadow = true;
+
 function loadLevel2() {
   clearLevel();
   inHole = false;
   gameState.waitingForContinue = false;
   continueOverlay.style.display = 'none';
-
-  for (let i = 0; i < 10; i++) {
-    const cube = new THREE.Mesh(
-      new THREE.BoxGeometry(2, 2, 2),
-      new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff })
-    );
-    cube.position.set((Math.random() - 0.5) * 30, 1, (Math.random() - 0.5) * 30);
-    addToScene(cube);
-  }
-  golfBall.position.set(0, 0.5, 0);
-
-  inGameMenuOverlay.style.display = 'block';
+  addToScene(golfBall);
+  golfBall.position.set(0, 0.5, 15);
+  const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);
+  const holeMaterial = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, side: THREE.DoubleSide });
+  hole = new THREE.Mesh(holeGeometry, holeMaterial);
+  hole.position.set(-25, -holeDepth / 2, -30);
+  addToScene(hole);
+  loader.load('./models/low_poly_golf_flag_animated.glb', (gltf) => {
+    const flagModel = gltf.scene;
+    flagModel.position.set(-30, 14.5, -30);
+    flagModel.scale.set(7.5, 7.5, 7.5);
+    addToScene(flagModel);
+    addToScene(arm1);
+    addToScene(arm2);
+    addToScene(arm1RightBorder);
+    addToScene(arm1LeftBorder);
+    addToScene(bottomBorder);
+    addToScene(arm2LeftBorder);
+    addToScene(arm2Bottom);
+    addToScene(arm2Top);
+    addToScene(hypotenuse);
+  });
 }
 
 // MOUSE CONTROLS (same as before)
@@ -518,6 +612,72 @@ function animate() {
     golfBall.position.z = -fieldHalfHeight + ballRadius;
     ballVelocity.z *= -0.7;
   }}
+  if(gameState.currentHole === 2){
+   // Collision for arm1RightBorder (right wall of first arm)
+const arm1RightBorderX = arm1RightBorder.position.x - borderWidth / 2;
+if (golfBall.position.x > arm1RightBorderX - ballRadius) {
+    if (golfBall.position.z > -30 - arm1Height / 2 - borderWidth && golfBall.position.z < -10 + arm1Height / 2) {
+        golfBall.position.x = arm1RightBorderX - ballRadius;
+        ballVelocity.x *= -0.7; // Bounce and lose some speed
+    }
+}
+// Collision for arm1LeftBorder (left wall of first arm)
+const arm1LeftBorderX = arm1LeftBorder.position.x + borderWidth / 2;
+if (golfBall.position.x < arm1LeftBorderX + ballRadius) {
+    if (golfBall.position.z > -30 - arm1Height / 2 - borderWidth && golfBall.position.z < -10 + arm1Height / 2) {
+        golfBall.position.x = arm1LeftBorderX + ballRadius;
+        ballVelocity.x *= -0.7;
+    }
+}
+// Collision for bottomBorder (bottom wall of first arm)
+const bottomBorderZ = bottomBorder.position.z - borderWidth / 2;
+if (golfBall.position.z > bottomBorderZ - ballRadius) {
+    if (golfBall.position.x > -arm1Width / 2 && golfBall.position.x < arm1Width / 2) {
+        golfBall.position.z = bottomBorderZ - ballRadius;
+        ballVelocity.z *= -0.7;
+    }
+}
+// Collision for arm2LeftBorder (left wall of second arm)
+const arm2LeftBorderX = arm2LeftBorder.position.x + borderWidth / 2;
+if (golfBall.position.x < arm2LeftBorderX + ballRadius) {
+    if (golfBall.position.z > -40 && golfBall.position.z < -20) {
+        golfBall.position.x = arm2LeftBorderX + ballRadius;
+        ballVelocity.x *= -0.7;
+    }
+}
+// Collision for arm2BottomBorder (bottom wall of second arm)
+const arm2BottomBorderZ = arm2BottomBorder.position.z - borderWidth / 2;
+if (golfBall.position.z > arm2BottomBorderZ - ballRadius) {
+    if (golfBall.position.x > -20 && golfBall.position.x < 0) {
+        golfBall.position.z = arm2BottomBorderZ - ballRadius;
+        ballVelocity.z *= -0.7;
+    }
+}
+// Collision for arm2TopBorder (top wall of second arm)
+const arm2TopBorderZ = arm2TopBorder.position.z + borderWidth / 2;
+if (golfBall.position.z < arm2TopBorderZ + ballRadius) {
+    if (golfBall.position.x > -20 && golfBall.position.x < 0) {
+        golfBall.position.z = arm2TopBorderZ + ballRadius;
+        ballVelocity.z *= -0.7;
+    }
+}
+// Collision with the hypotenuse
+const hypotenusePos2D = new THREE.Vector2(hypotenuse.position.x, hypotenuse.position.z);
+const ballPos2D = new THREE.Vector2(golfBall.position.x, golfBall.position.z);
+const collisionRadius = triangleLegWidth / 2 + ballRadius;
+
+if (ballPos2D.distanceTo(hypotenusePos2D) < collisionRadius) {
+    // Simple push-back collision
+    const normal = new THREE.Vector2().subVectors(ballPos2D, hypotenusePos2D).normalize();
+    golfBall.position.x = hypotenusePos2D.x + normal.x * collisionRadius;
+    golfBall.position.z = hypotenusePos2D.y + normal.y * collisionRadius;
+
+    // Reflect the velocity vector
+    const reflectedVelocity = ballVelocity.clone();
+    reflectedVelocity.reflect(new THREE.Vector3(normal.x, 0, normal.y));
+    ballVelocity.copy(reflectedVelocity.multiplyScalar(0.7)); // Reduce speed on bounce
+}
+  }
 
   // friction
   ballVelocity.multiplyScalar(friction);
