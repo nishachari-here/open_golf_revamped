@@ -15,6 +15,7 @@ const gameState = {
   waitingForContinue: false,
   unlockedLevels: 1,
   mode: "title", // "title", "levelSelect", "playing", "waitingForContinue"
+  totalScore: 0, // --- NEW: track total strokes across all levels ---
 };
 
 // canvas + renderer
@@ -63,7 +64,7 @@ let isDragging = false;
 let dragStart = new THREE.Vector2();
 let arrowHelper = null;
 let ballVelocity = new THREE.Vector3(0, 0, 0);
-const friction = 0.99;
+const friction = 0.985; // --- CHANGED: slightly less friction for smoother rolls ---
 let inHole = false;
 
 // raycaster
@@ -140,19 +141,25 @@ resultOverlay.style.borderRadius = "12px";
 resultOverlay.style.background = "rgba(0, 0, 0, 0.6)";
 document.body.appendChild(resultOverlay);
 
-// --- NEW STROKES OVERLAY ---
-const strokesOverlay = document.createElement("div");
-strokesOverlay.id = "strokesOverlay";
-strokesOverlay.style.position = "absolute";
-strokesOverlay.style.top = "20px";
-strokesOverlay.style.right = "20px";
-strokesOverlay.style.fontSize = "20px";
-strokesOverlay.style.color = "white";
-strokesOverlay.style.padding = "10px 15px";
-strokesOverlay.style.borderRadius = "10px";
-strokesOverlay.style.background = "rgba(0,0,0,0.4)";
-strokesOverlay.style.display = "none";
-document.body.appendChild(strokesOverlay);
+// --- NEW HUD OVERLAY (Hole + Par + Strokes) ---
+const hudOverlay = document.createElement("div");
+hudOverlay.id = "hudOverlay";
+hudOverlay.style.position = "absolute";
+hudOverlay.style.top = "20px";
+hudOverlay.style.left = "50%";
+hudOverlay.style.transform = "translateX(-50%)";
+hudOverlay.style.fontSize = "20px";
+hudOverlay.style.color = "white";
+hudOverlay.style.padding = "10px 15px";
+hudOverlay.style.borderRadius = "10px";
+hudOverlay.style.background = "rgba(0,0,0,0.4)";
+hudOverlay.style.display = "none";
+document.body.appendChild(hudOverlay);
+
+function updateHUD() {
+  const par = gameState.par[gameState.currentHole - 1];
+  hudOverlay.innerText = `Hole ${gameState.currentHole} | Par ${par} | Strokes ${gameState.strokes}`;
+}
 
 // --- POWER BAR WITH SMOOTH ANIMATION ---
 const powerBarContainer = document.createElement("div");
@@ -197,7 +204,7 @@ function getGolfResult(strokes, par) {
 
 // update strokes overlay
 function updateStrokesOverlay() {
-  strokesOverlay.innerText = `Strokes: ${gameState.strokes}`;
+  updateHUD(); // --- simplified: only HUD now ---
 }
 
 // update level select buttons
@@ -256,8 +263,11 @@ function startLevel(n) {
 
   // reset strokes
   gameState.strokes = 0;
-  strokesOverlay.style.display = "block";
   updateStrokesOverlay();
+
+  // --- NEW: show HUD ---
+  hudOverlay.style.display = "block";
+  updateHUD();
 
   if (n === 1) loadLevel1();
   if (n === 2) loadLevel2();
@@ -654,8 +664,35 @@ function animate() {
   if (gameState.mode !== "playing") return;
   if (gameState.waitingForContinue) return;
 
+  // --- NEW: velocity cap ---
+  const maxSpeed = 1.2;
+  if (ballVelocity.length() > maxSpeed) {
+    ballVelocity.setLength(maxSpeed);
+  }
+
   // Movement physics
   golfBall.position.add(ballVelocity);
+
+// --- FIXED: only clamp if NOT inside hole area ---
+if (!inHole) {
+  if (hole) {
+    const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
+    const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
+    const distXZ = holePosXZ.distanceTo(ballPosXZ);
+
+    if (distXZ < holeRadius) {
+      // allow ball to fall into hole
+      ballVelocity.y = -0.05; // slower fall for realism
+    } else if (golfBall.position.y < 0.5) {
+      // keep ball above course
+      golfBall.position.y = 0.5;
+      ballVelocity.y = 0;
+    }
+  } else if (golfBall.position.y < 0.5) {
+    golfBall.position.y = 0.5;
+    ballVelocity.y = 0;
+  }
+}
 
   // Hole detection & finish logic
   if (hole && !inHole) {
@@ -684,10 +721,18 @@ function animate() {
           );
         }
 
+        // --- NEW: add strokes to total score ---
+        gameState.totalScore += gameState.strokes;
+
         // Show result overlay
         const par = gameState.par[gameState.currentHole - 1];
         const resultText = getGolfResult(gameState.strokes, par);
-        resultOverlay.innerText = `${resultText}\n(${gameState.strokes} strokes, Par ${par})\n\nPress SPACE to continue`;
+
+        if (gameState.currentHole < gameState.totalHoles) {
+          resultOverlay.innerText = `${resultText}\n(${gameState.strokes} strokes, Par ${par})\n\nPress SPACE to continue`;
+        } else {
+          resultOverlay.innerText = `🏆 Game Over!\n${resultText}\n\nTotal Score: ${gameState.totalScore}`;
+        }
         resultOverlay.style.display = "block";
 
         // Set game state for continuation
@@ -699,46 +744,57 @@ function animate() {
     }
   }
 
-
- if(gameState.currentHole === 1){
-  const ballRadius = 0.5;
-  const fieldHalfWidth = lawnWidth / 2;
-  const fieldHalfHeight = lawnHeight / 2;
-  if (golfBall.position.x > fieldHalfWidth - ballRadius) {
-    golfBall.position.x = fieldHalfWidth - ballRadius;
-    ballVelocity.x *= -0.7;
+  // --- NEW: world bounds failsafe ---
+  const playfieldLimit = 60;
+  if (Math.abs(golfBall.position.x) > playfieldLimit ||
+      Math.abs(golfBall.position.z) > playfieldLimit ||
+      golfBall.position.y < -5) {
+    console.warn("Ball escaped, resetting...");
+    if (gameState.currentHole === 1) {
+      golfBall.position.set(0, 0.5, 20);
+    } else if (gameState.currentHole === 2) {
+      golfBall.position.set(0, 0.5, 15);
+    }
+    ballVelocity.set(0, 0, 0);
   }
-  if (golfBall.position.x < -fieldHalfWidth + ballRadius) {
-    golfBall.position.x = -fieldHalfWidth + ballRadius;
-    ballVelocity.x *= -0.7;
+
+  if(gameState.currentHole === 1){
+    const ballRadius = 0.5;
+    const fieldHalfWidth = lawnWidth / 2;
+    const fieldHalfHeight = lawnHeight / 2;
+    if (golfBall.position.x > fieldHalfWidth - ballRadius) {
+      golfBall.position.x = fieldHalfWidth - ballRadius;
+      ballVelocity.x *= -0.7;
+    }
+    if (golfBall.position.x < -fieldHalfWidth + ballRadius) {
+      golfBall.position.x = -fieldHalfWidth + ballRadius;
+      ballVelocity.x *= -0.7;
+    }
+    if (golfBall.position.z > fieldHalfHeight - ballRadius) {
+      golfBall.position.z = fieldHalfHeight - ballRadius;
+      ballVelocity.z *= -0.7;
+    }
+    if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
+      golfBall.position.z = -fieldHalfHeight + ballRadius;
+      ballVelocity.z *= -0.7;
+    }
   }
-  if (golfBall.position.z > fieldHalfHeight - ballRadius) {
-    golfBall.position.z = fieldHalfHeight - ballRadius;
-    ballVelocity.z *= -0.7;
+
+  if (gameState.currentHole === 2) {
+    // resolve rectangular borders (use the same function for each border)
+    resolveBoxCollision(arm1RightBorder);
+    resolveBoxCollision(arm1LeftBorder);
+    resolveBoxCollision(bottomBorder);
+    resolveBoxCollision(arm2LeftBorder);
+    resolveBoxCollision(arm2Bottom);
+    resolveBoxCollision(arm2Top);
+
+    // resolve angled hypotenuse as a finite plane
+    resolveAngledCollision(hypotenuse);
   }
-  if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
-    golfBall.position.z = -fieldHalfHeight + ballRadius;
-    ballVelocity.z *= -0.7;
-  }}
-if (gameState.currentHole === 2) {
-  // resolve rectangular borders (use the same function for each border)
-  resolveBoxCollision(arm1RightBorder);
-  resolveBoxCollision(arm1LeftBorder);
-  resolveBoxCollision(bottomBorder);
-  resolveBoxCollision(arm2LeftBorder);
-  resolveBoxCollision(arm2Bottom);
-  resolveBoxCollision(arm2Top);
-
-  // resolve angled hypotenuse as a finite plane
-  resolveAngledCollision(hypotenuse);
-}
-
-
-
-
-  // friction
+  // --- NEW: friction and stop condition ---
   ballVelocity.multiplyScalar(friction);
-  if (ballVelocity.length() < 0.001) ballVelocity.set(0, 0, 0);
+  if (ballVelocity.length() < 0.002) ballVelocity.set(0, 0, 0);
 }
 
 animate();

@@ -94,3 +94,30 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+/* --- UI Polish --- */
+#hudOverlay {
+  font-weight: 600;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  backdrop-filter: blur(4px);
+}
+
+/* Styled buttons for level select menu */
+.level-btn {
+  margin: 10px;
+  padding: 10px 20px;
+  font-size: 18px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #4cafef, #2c82d3);
+  color: white;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+}
+
+.level-btn:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
+}
