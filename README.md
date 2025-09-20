@@ -6,3 +6,8 @@ Setting Power: Drag the mouse backward to increase the shot's power, which is in
 Shooting: Release the mouse button to hit the ball.
 
 Camera Controls: You can use the mouse to move the camera around the course. The camera automatically follows the ball after you take a shot.
+
+How to Setup
+1.cd into mini-golf
+2.npm install
+3.npm run dev
