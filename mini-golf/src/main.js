@@ -207,6 +207,33 @@ function updateStrokesOverlay() {
   updateHUD(); // --- simplified: only HUD now ---
 }
 
+// --- NEW: Out-of-bounds reset helper ---
+function resetBall() {
+  console.warn("Ball escaped, resetting to start...");
+
+  // penalty stroke
+  gameState.strokes++;
+  updateStrokesOverlay();
+
+  // reset position based on current hole
+  if (gameState.currentHole === 1) {
+    golfBall.position.set(0, 0.5, 20);
+  } else if (gameState.currentHole === 2) {
+    golfBall.position.set(0, 0.5, 15);
+  }
+
+  // stop motion
+  ballVelocity.set(0, 0, 0);
+
+  // optional: flash penalty message
+  resultOverlay.innerText = "⚠️ Out of Bounds! +1 Stroke";
+  resultOverlay.style.display = "block";
+  setTimeout(() => { 
+    resultOverlay.style.display = "none"; 
+  }, 1500);
+}
+
+
 // update level select buttons
 function updateLevelSelect() {
   levelSelectOverlay.innerHTML = "<h2>Select Level</h2>";
@@ -652,7 +679,42 @@ function resolveAngledCollision(wall) {
   }
 }
 
+// --- NEW: Finish Hole Helper ---
+function finishHole() {
+  golfBall.position.y = -holeDepth;
+  ballVelocity.set(0, 0, 0);
+  inHole = true;
 
+  // Unlock next level if applicable
+  if (gameState.currentHole < gameState.totalHoles) {
+    gameState.unlockedLevels = Math.max(
+      gameState.unlockedLevels,
+      gameState.currentHole + 1
+    );
+  }
+
+  // Add strokes to total score
+  gameState.totalScore += gameState.strokes;
+
+  // Show result overlay
+  const par = gameState.par[gameState.currentHole - 1];
+  const resultText = getGolfResult(gameState.strokes, par);
+
+  if (gameState.currentHole < gameState.totalHoles) {
+    resultOverlay.innerText = `${resultText}\n(${gameState.strokes} strokes, Par ${par})\n\nPress SPACE to continue`;
+  } else {
+    resultOverlay.innerText = `🏆 Game Over!\n${resultText}\n\nTotal Score: ${gameState.totalScore}`;
+  }
+  resultOverlay.style.display = "block";
+
+  // Set state
+  gameState.waitingForContinue = true;
+  gameState.mode = "waitingForContinue";
+
+  console.log("Ball in hole! Press SPACE to continue.");
+}
+
+const captureRadius = holeRadius + 0.2; // extra margin to pull ball in
 
 // Animate loop
 function animate() {
@@ -673,90 +735,48 @@ function animate() {
   // Movement physics
   golfBall.position.add(ballVelocity);
 
-// --- FIXED: only clamp if NOT inside hole area ---
-if (!inHole) {
-  if (hole) {
-    const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
-    const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
-    const distXZ = holePosXZ.distanceTo(ballPosXZ);
+// --- Improved Hole Logic (with funnel effect) ---
+if (hole && !inHole) {
+  const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
+  const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
+  const distXZ = holePosXZ.distanceTo(ballPosXZ);
 
-    if (distXZ < holeRadius) {
-      // allow ball to fall into hole
-      ballVelocity.y = -0.05; // slower fall for realism
-    } else if (golfBall.position.y < 0.5) {
-      // keep ball above course
+  if (distXZ < captureRadius) {
+    // Apply attraction toward hole center
+    const pullStrength = 0.01; // tweak for stronger funnel
+    const pullDir = holePosXZ.clone().sub(ballPosXZ).normalize();
+    ballVelocity.add(pullDir.multiplyScalar(pullStrength));
+
+    // If close enough, force it into the hole
+    if (distXZ < holeRadius * 0.8) {
+      ballVelocity.set(0, -0.05, 0); // downward fall
+      golfBall.position.x += (holePosXZ.x - golfBall.position.x) * 0.2;
+      golfBall.position.z += (holePosXZ.z - golfBall.position.z) * 0.2;
+    }
+
+    // Check if ball has fallen through
+    if (golfBall.position.y <= -holeDepth) {
+      finishHole();
+    }
+  } else {
+    // Not near hole → keep ball above ground
+    if (golfBall.position.y < 0.5) {
       golfBall.position.y = 0.5;
       ballVelocity.y = 0;
     }
-  } else if (golfBall.position.y < 0.5) {
-    golfBall.position.y = 0.5;
-    ballVelocity.y = 0;
   }
 }
 
-  // Hole detection & finish logic
-  if (hole && !inHole) {
-    const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
-    const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
-    const distXZ = holePosXZ.distanceTo(ballPosXZ);
 
-    if (distXZ < holeRadius) { // Ball is over the hole
-      // Start falling into hole
-      ballVelocity.y = -0.2;
-
-      if (golfBall.position.y > -holeDepth) {
-        // Keep falling
-        golfBall.position.y += ballVelocity.y;
-      } else {
-        // Ball has reached bottom
-        golfBall.position.y = -holeDepth;
-        ballVelocity.set(0, 0, 0);
-        inHole = true;
-
-        // Unlock next level if applicable
-        if (gameState.currentHole < gameState.totalHoles) {
-          gameState.unlockedLevels = Math.max(
-            gameState.unlockedLevels,
-            gameState.currentHole + 1
-          );
-        }
-
-        // --- NEW: add strokes to total score ---
-        gameState.totalScore += gameState.strokes;
-
-        // Show result overlay
-        const par = gameState.par[gameState.currentHole - 1];
-        const resultText = getGolfResult(gameState.strokes, par);
-
-        if (gameState.currentHole < gameState.totalHoles) {
-          resultOverlay.innerText = `${resultText}\n(${gameState.strokes} strokes, Par ${par})\n\nPress SPACE to continue`;
-        } else {
-          resultOverlay.innerText = `🏆 Game Over!\n${resultText}\n\nTotal Score: ${gameState.totalScore}`;
-        }
-        resultOverlay.style.display = "block";
-
-        // Set game state for continuation
-        gameState.waitingForContinue = true;
-        gameState.mode = "waitingForContinue";
-
-        console.log("Ball in hole! Press SPACE to continue.");
-      }
-    }
-  }
 
   // --- NEW: world bounds failsafe ---
   const playfieldLimit = 60;
   if (Math.abs(golfBall.position.x) > playfieldLimit ||
       Math.abs(golfBall.position.z) > playfieldLimit ||
       golfBall.position.y < -5) {
-    console.warn("Ball escaped, resetting...");
-    if (gameState.currentHole === 1) {
-      golfBall.position.set(0, 0.5, 20);
-    } else if (gameState.currentHole === 2) {
-      golfBall.position.set(0, 0.5, 15);
-    }
-    ballVelocity.set(0, 0, 0);
+    resetBall();
   }
+
 
   if(gameState.currentHole === 1){
     const ballRadius = 0.5;
