@@ -57,131 +57,7 @@ scene.background = cubeTextureLoader.load([
 
 const loader = new GLTFLoader();
 
-<<<<<<< Updated upstream
 // physics
-=======
-// Green surface
-const planeGeometry = new THREE.PlaneGeometry(20, 60);
-const planeMaterial = new THREE.MeshStandardMaterial({
-  color: '#A9D649',
-  side: THREE.DoubleSide
-});
-const greenSurface = new THREE.Mesh(planeGeometry, planeMaterial);
-greenSurface.rotation.x = -Math.PI / 2;
-greenSurface.receiveShadow = true;
-scene.add(greenSurface);
-
-// Hole (bigger + deeper)
-const holeRadius = 1.2;
-const holeDepth = 1;
-const holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, holeDepth, 32);
-const holeMaterial = new THREE.MeshStandardMaterial({
-  color: 0x0a0a0a,
-  side: THREE.DoubleSide
-});
-const hole = new THREE.Mesh(holeGeometry, holeMaterial);
-hole.position.set(0, -holeDepth / 2, -20);
-scene.add(hole);
-
-// Load GLTF model
-function loadModel(path) {
-  return new Promise((resolve, reject) => {
-    loader.load(path, resolve, undefined, reject);
-  });
-}
-
-// Golf ball
-const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-const ballMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  roughness: 0.4,
-  metalness: 0.2
-});
-const golfBall = new THREE.Mesh(ballGeometry, ballMaterial);
-scene.add(golfBall);
-golfBall.position.set(0, 0.5, 20);
-golfBall.castShadow = true;
-
-// Models
-const modelPaths = [
-  './models/low_poly_golf_flag_animated.glb',
-];
-
-// Borders
-const lawnWidth = 20;
-const lawnHeight = 60;
-const borderWidth = 1;
-const borderHeight = 1;
-
-const borderMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8B4513
-});
-
-// Top Border
-const topBorderGeometry = new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth);
-const topBorder = new THREE.Mesh(topBorderGeometry, borderMaterial);
-topBorder.position.set(0, borderHeight / 2, -lawnHeight / 2 - borderWidth / 2);
-topBorder.castShadow = true;
-scene.add(topBorder);
-
-// Bottom Border
-const bottomBorderGeometry = new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth);
-const bottomBorder = new THREE.Mesh(bottomBorderGeometry, borderMaterial);
-bottomBorder.position.set(0, borderHeight / 2, lawnHeight / 2 + borderWidth / 2);
-bottomBorder.castShadow = true;
-scene.add(bottomBorder);
-
-// Left Border
-const leftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight);
-const leftBorder = new THREE.Mesh(leftBorderGeometry, borderMaterial);
-leftBorder.position.set(-lawnWidth / 2 - borderWidth / 2, borderHeight / 2, 0);
-leftBorder.castShadow = true;
-scene.add(leftBorder);
-
-// Right Border
-const rightBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight);
-const rightBorder = new THREE.Mesh(rightBorderGeometry, borderMaterial);
-rightBorder.position.set(lawnWidth / 2 + borderWidth / 2, borderHeight / 2, 0);
-rightBorder.castShadow = true;
-scene.add(rightBorder);
-
-// Level 2 Borders (L-shaped)
-const planeGeometry2 = new THREE.PlaneGeometry2(20,40);
-const greenSurface2 = new THREE.Mesh(planeGeometry2, planeMaterial);
-greenSurface2.rotation.x = -Math.PI / 2;
-greenSurface2.receiveShadow = true;
-greenSurface2.position.set(0,40,-20);
-const rightLGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, 40);
-const rightL2 = new THREE.Mesh(rightLGeometry, borderMaterial);
-rightL2.position.set(lawnWidth / 2 + borderWidth / 2, borderHeight / 2, -10);
-rightL2.castShadow = true;
-const topLGeometry = new THREE.BoxGeometry(60 + borderWidth * 2, borderHeight, borderWidth);
-const topL2 = new THREE.Mesh(topLGeometry, borderMaterial);
-topL2.position.set(0, borderHeight / 2, -lawnHeight / 2 - borderWidth / 2);
-topL2.castShadow = true;
-const rightLXGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, 20);
-const rightLX2 = new THREE.Mesh(rightLXGeometry, borderMaterial);
-rightLX2.position.set(, borderHeight / 2, 0);
-rightL2.castShadow = true;
-
-
-
-
-
-// Level transition handler
-function handelLevelTransition() 
-{
-  gameState.currentHole=2
-  scene.remove(topBorder,  rightBorder, hole);
-  scene.add(greenSurface2, rightL2, topL2);
-  golfBall.position.set(10, 0.5, 20);
-  hole.position.set(-20, -holeDepth, -40);
-  scene.add(hole);
-  inHole = false;
-}
-
-// Physics variables
->>>>>>> Stashed changes
 let isDragging = false;
 let dragStart = new THREE.Vector2();
 let arrowHelper = null;
@@ -585,7 +461,6 @@ function animate() {
     const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
     const distXZ = holePosXZ.distanceTo(ballPosXZ);
 
-<<<<<<< Updated upstream
     if (distXZ < holeRadius) { // Ball is over the hole
       // Start falling into hole
       ballVelocity.y = -0.2;
@@ -619,20 +494,6 @@ function animate() {
 
         console.log("Ball in hole! Press SPACE to continue.");
       }
-=======
-  if (ballPos.distanceTo(holePos) < holeRadius * 0.6) {
-    if (golfBall.position.y > -holeDepth) {
-      golfBall.position.lerp(
-        new THREE.Vector3(hole.position.x, -holeDepth, hole.position.z),
-        0.1 // controls sinking speed
-      );
-    } else {
-      inHole = true;
-      ballVelocity.set(0, 0, 0);
-      golfBall.position.set(hole.position.x, -holeDepth, hole.position.z);
-      console.log("Ball in hole! 🏌️‍♂️");
-      handelLevelTransition();
->>>>>>> Stashed changes
     }
   }
 
@@ -656,48 +517,9 @@ function animate() {
   if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
     golfBall.position.z = -fieldHalfHeight + ballRadius;
     ballVelocity.z *= -0.7;
-<<<<<<< Updated upstream
   }}
 
   // friction
-=======
-  }
-  if (gameState.currentHole === 2) 
-  {
-  // Get the dimensions of arm1
-      const arm1Width = arm1.geometry.parameters.width;
-      const arm1Height = arm1.geometry.parameters.depth; // Note: PlaneGeometry's height is BoxGeometry's depth
-
-      // Get the dimensions of arm2
-      const arm2Width = arm2.geometry.parameters.width;
-      const arm2Height = arm2.geometry.parameters.depth;
-
-      const ballRadius = golfBall.geometry.parameters.radius;
-
-      // Collision for the first arm of the L
-      // Check the x-axis
-      if (golfBall.position.x > arm1Width / 2 - ballRadius || golfBall.position.x < -arm1Width / 2 + ballRadius) {
-        // Check if the ball is within the arm's z-bounds
-        if (golfBall.position.z < arm1.position.z + arm1Height / 2 - ballRadius && golfBall.position.z > arm1.position.z - arm1Height / 2 + ballRadius) {
-          golfBall.position.x = golfBall.position.x > 0 ? arm1Width / 2 - ballRadius : -arm1Width / 2 + ballRadius;
-          ballVelocity.x *= -0.7;
-        }
-      }
-
-      // Check the z-axis for the first arm of the L
-      if (golfBall.position.z > arm1.position.z + arm1Height / 2 - ballRadius || golfBall.position.z < arm1.position.z - arm1Height / 2 + ballRadius) {
-        // Check if the ball is within the arm's x-bounds
-        if (golfBall.position.x < arm1Width / 2 - ballRadius && golfBall.position.x > -arm1Width / 2 + ballRadius) {
-          golfBall.position.z = golfBall.position.z > arm1.position.z ? arm1.position.z + arm1Height / 2 - ballRadius : arm1.position.z - arm1Height / 2 + ballRadius;
-          ballVelocity.z *= -0.7;
-        
-    }
-  }
-  
-  // You would need to add similar logic for arm2 here.
-  }
-  // Friction
->>>>>>> Stashed changes
   ballVelocity.multiplyScalar(friction);
   if (ballVelocity.length() < 0.001) ballVelocity.set(0, 0, 0);
 }
