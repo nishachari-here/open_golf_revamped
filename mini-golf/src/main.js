@@ -3,7 +3,6 @@ import { setupCounter } from './counter.js'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { add } from 'three/src/nodes/TSL.js';
 
 // gameplay state
 const gameState = {
@@ -263,7 +262,7 @@ function showTitle() {
   continueOverlay.style.display = "none";
   inGameMenuOverlay.style.display = "none";
   resultOverlay.style.display = "none";
-  strokesOverlay.style.display = "none";
+  hudOverlay.style.display = "none";
 }
 
 function showLevelSelect() {
@@ -274,7 +273,7 @@ function showLevelSelect() {
   continueOverlay.style.display = "none";
   inGameMenuOverlay.style.display = "none";
   resultOverlay.style.display = "none";
-  strokesOverlay.style.display = "none";
+  hudOverlay.style.display = "none";
 }
 
 function startLevel(n) {
@@ -315,6 +314,15 @@ function clearLevel() {
     try { scene.remove(o); } catch (e) {}
   });
   gameState.levelObjects = [];
+
+  // Reset important references so next load is clean
+  hole = null;
+  inHole = false;
+  topBorder = bottomBorder = leftBorder = rightBorder = null;
+
+  // Hide level-specific UI
+  hudOverlay.style.display = 'none';
+  inGameMenuOverlay.style.display = 'none';
 }
 
 
@@ -328,6 +336,9 @@ scene.add(golfBall);
 // hole + refs
 let hole, holeRadius = 1.2, holeDepth = 1;
 let lawnWidth = 20, lawnHeight = 60;
+
+// Hole 1 borders (global so animate() can access them)
+let topBorder, bottomBorder, leftBorder, rightBorder;
 
 // LEVEL LOADING
 function loadLevel1() {
@@ -351,20 +362,24 @@ function loadLevel1() {
   hole.position.set(0, -holeDepth / 2, -20);
   addToScene(hole);
 
-  // Borders
-  const borderWidth = 1, borderHeight = 1;
-  const borderMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-  const topBorder = new THREE.Mesh(new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth), borderMaterial);
-  topBorder.position.set(0, borderHeight / 2, -lawnHeight / 2 - borderWidth / 2);
+  // Borders (assigned to globals)
+  const borderWidthLocal = 1, borderHeightLocal = 1;
+  const borderMatLocal = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+
+  topBorder = new THREE.Mesh(new THREE.BoxGeometry(lawnWidth + borderWidthLocal * 2, borderHeightLocal, borderWidthLocal), borderMatLocal);
+  topBorder.position.set(0, borderHeightLocal / 2, -lawnHeight / 2 - borderWidthLocal / 2);
   addToScene(topBorder);
-  const bottomBorder = new THREE.Mesh(new THREE.BoxGeometry(lawnWidth + borderWidth * 2, borderHeight, borderWidth), borderMaterial);
-  bottomBorder.position.set(0, borderHeight / 2, lawnHeight / 2 + borderWidth / 2);
+
+  bottomBorder = new THREE.Mesh(new THREE.BoxGeometry(lawnWidth + borderWidthLocal * 2, borderHeightLocal, borderWidthLocal), borderMatLocal);
+  bottomBorder.position.set(0, borderHeightLocal / 2, lawnHeight / 2 + borderWidthLocal / 2);
   addToScene(bottomBorder);
-  const leftBorder = new THREE.Mesh(new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight), borderMaterial);
-  leftBorder.position.set(-lawnWidth / 2 - borderWidth / 2, borderHeight / 2, 0);
+
+  leftBorder = new THREE.Mesh(new THREE.BoxGeometry(borderWidthLocal, borderHeightLocal, lawnHeight), borderMatLocal);
+  leftBorder.position.set(-lawnWidth / 2 - borderWidthLocal / 2, borderHeightLocal / 2, 0);
   addToScene(leftBorder);
-  const rightBorder = new THREE.Mesh(new THREE.BoxGeometry(borderWidth, borderHeight, lawnHeight), borderMaterial);
-  rightBorder.position.set(lawnWidth / 2 + borderWidth / 2, borderHeight / 2, 0);
+
+  rightBorder = new THREE.Mesh(new THREE.BoxGeometry(borderWidthLocal, borderHeightLocal, lawnHeight), borderMatLocal);
+  rightBorder.position.set(lawnWidth / 2 + borderWidthLocal / 2, borderHeightLocal / 2, 0);
   addToScene(rightBorder);
 
   // Flag
@@ -430,10 +445,11 @@ const arm1LeftBorder = new THREE.Mesh(arm1LeftBorderGeometry, borderMaterial);
 arm1LeftBorder.position.set(-arm1Width / 2 - borderWidth / 2, borderHeight / 2, 0);
 arm1LeftBorder.castShadow = true;
 
-const bottomBorder = new THREE.Mesh(new THREE.BoxGeometry(arm1Width + borderWidth * 2, borderHeight, borderWidth), borderMaterial);
-  bottomBorder.position.set(0, borderHeight / 2, arm1Width / 2 + borderWidth / 2+10);
+const arm1BottomBorder = new THREE.Mesh(new THREE.BoxGeometry(arm1Width + borderWidth * 2, borderHeight, borderWidth), borderMaterial);
+arm1BottomBorder.position.set(0, borderHeight / 2, arm1Width / 2 + borderWidth / 2+10);
+arm1BottomBorder.castShadow = true;
   
-  const arm2LeftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, arm2Height);
+const arm2LeftBorderGeometry = new THREE.BoxGeometry(borderWidth, borderHeight, arm2Height);
 const arm2LeftBorder = new THREE.Mesh(arm2LeftBorderGeometry, borderMaterial);
 arm2LeftBorder.position.set(-10 - arm2Width / 2 - borderWidth / 2, borderHeight / 2, -30);
 arm2LeftBorder.castShadow = true;
@@ -490,7 +506,7 @@ function loadLevel2() {
     addToScene(arm2);
     addToScene(arm1RightBorder);
     addToScene(arm1LeftBorder);
-    addToScene(bottomBorder);
+    addToScene(arm1BottomBorder);
     addToScene(arm2LeftBorder);
     addToScene(arm2Bottom);
     addToScene(arm2Top);
@@ -586,9 +602,11 @@ window.addEventListener('mouseup', (event) => {
 
 
 // ---- COLLISION HELPERS (paste above animate) ----
+// --- Improved Box Collision ---
 function resolveBoxCollision(wall) {
   if (!wall) return;
   const ballRadius = 0.5;
+
   const ballBox = new THREE.Box3().setFromCenterAndSize(
     golfBall.position.clone(),
     new THREE.Vector3(ballRadius * 2, ballRadius * 2, ballRadius * 2)
@@ -597,85 +615,88 @@ function resolveBoxCollision(wall) {
 
   if (!wallBox.intersectsBox(ballBox)) return;
 
-  // Closest point on wall box to ball center
-  const closest = new THREE.Vector3(
-    Math.max(wallBox.min.x, Math.min(golfBall.position.x, wallBox.max.x)),
-    Math.max(wallBox.min.y, Math.min(golfBall.position.y, wallBox.max.y)),
-    Math.max(wallBox.min.z, Math.min(golfBall.position.z, wallBox.max.z))
+  // Calculate penetration along each axis
+  const overlapX = Math.min(
+    wallBox.max.x - (golfBall.position.x - ballRadius),
+    (golfBall.position.x + ballRadius) - wallBox.min.x
+  );
+  const overlapZ = Math.min(
+    wallBox.max.z - (golfBall.position.z - ballRadius),
+    (golfBall.position.z + ballRadius) - wallBox.min.z
   );
 
-  // Direction from closest point to ball center
-  const normal = new THREE.Vector3().subVectors(golfBall.position, closest);
-  if (normal.lengthSq() === 0) {
-    // fallback normal (rare)
-    normal.set(0, 1, 0);
+  if (overlapX < overlapZ) {
+    // Resolve along X axis
+    if (golfBall.position.x < wallBox.min.x) {
+      golfBall.position.x = wallBox.min.x - ballRadius - 0.001;
+    } else {
+      golfBall.position.x = wallBox.max.x + ballRadius + 0.001;
+    }
+    ballVelocity.x *= -0.7;
   } else {
-    normal.normalize();
-  }
-
-  // penetration amount
-  const distanceToClosest = golfBall.position.distanceTo(closest);
-  const penetration = ballRadius - distanceToClosest;
-  if (penetration > 0) {
-    golfBall.position.addScaledVector(normal, penetration + 0.001); // push outside
-    ballVelocity.reflect(normal).multiplyScalar(0.7); // bounce/dampen
+    // Resolve along Z axis
+    if (golfBall.position.z < wallBox.min.z) {
+      golfBall.position.z = wallBox.min.z - ballRadius - 0.001;
+    } else {
+      golfBall.position.z = wallBox.max.z + ballRadius + 0.001;
+    }
+    ballVelocity.z *= -0.7;
   }
 }
 
-// Angled finite wall collision (good for the hypotenuse)
+// --- Improved Angled Collision ---
 function resolveAngledCollision(wall) {
   if (!wall || !wall.geometry) return;
   const ballRadius = 0.5;
-  // world-space normal: local +Z is face direction in your hypotenuse setup
-  const worldNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(wall.quaternion).normalize();
 
-  // plane built from wall's world position and normal
+  // Ball movement segment
+  const startPos = golfBall.position.clone();
+  const endPos = startPos.clone().add(ballVelocity);
+
+  // Wall normal
+  const worldNormal = new THREE.Vector3(0, 0, 1)
+    .applyQuaternion(wall.quaternion)
+    .normalize();
+
+  // Plane of wall
   const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(worldNormal, wall.position);
 
-  // signed distance from ball center to plane
-  const signedDistance = plane.distanceToPoint(golfBall.position);
+  // Distances from start and end
+  const d1 = plane.distanceToPoint(startPos);
+  const d2 = plane.distanceToPoint(endPos);
 
-  // if ball is further away than radius -> no collision
-  if (Math.abs(signedDistance) > ballRadius + 0.001) return;
+  // --- Continuous collision check ---
+  if (d1 > ballRadius && d2 < -ballRadius || d1 < -ballRadius && d2 > ballRadius) {
+    // Segment crosses the plane
+    const direction = ballVelocity.clone().normalize();
+    const ray = new THREE.Ray(startPos, direction);
+    const hitPoint = new THREE.Vector3();
+    ray.intersectPlane(plane, hitPoint);
 
-  // Project ball center onto plane (closest point on infinite plane)
-  const projected = golfBall.position.clone().addScaledVector(worldNormal, -signedDistance);
+    // Clamp position just outside the wall
+    const correction = worldNormal.clone().multiplyScalar(ballRadius + 0.01);
+    if (plane.distanceToPoint(hitPoint) < 0) correction.negate();
 
-  // Convert that projected point into the wall's local space to check finite extents
-  const projectedLocal = projected.clone();
-  wall.worldToLocal(projectedLocal);
+    golfBall.position.copy(hitPoint).add(correction);
 
-  // Determine wall half-extents from its geometry (BoxGeometry: width,height,depth)
-  let halfX = 0.5, halfY = 0.5, halfZ = 0.5;
-  try {
-    const p = wall.geometry.parameters;
-    // BoxGeometry uses width,height,depth
-    halfX = (p.width || p.height || p.depth) / 2;
-    halfY = (p.height || p.width || p.depth) / 2;
-    halfZ = (p.depth || p.width || p.height) / 2;
-  } catch (err) {
-    // fallback if geometry parameters not available - use reasonable defaults
-    halfX = (typeof hypotenuseLength !== 'undefined') ? hypotenuseLength / 2 : 10;
-    halfY = (typeof triangleLegHeight !== 'undefined') ? triangleLegHeight / 2 : 0.5;
-    halfZ = (typeof triangleLegWidth !== 'undefined') ? triangleLegWidth / 2 : 0.5;
+    // Reflect velocity
+    ballVelocity.reflect(worldNormal).multiplyScalar(0.7);
+    return;
   }
 
-  // In the wall's local coordinates: x runs along the length, y vertical.
-  // If the projected local point lies within the local X & local Y extents (+ballRadius margin) -> collision
-  if (projectedLocal.x < -halfX - ballRadius || projectedLocal.x > halfX + ballRadius) return;
-  if (projectedLocal.y < -halfY - ballRadius || projectedLocal.y > halfY + ballRadius) return;
+  // --- Fallback: overlap correction ---
+  const wallBox = new THREE.Box3().setFromObject(wall);
+  const ballSphere = new THREE.Sphere(endPos, ballRadius);
 
-  // At this point the ball is intersecting the finite plane (face) region of the wall.
-  // Determine the proper outward normal (pointing from wall into the ball)
-  const normalUsed = worldNormal.clone();
-  if (signedDistance < 0) normalUsed.negate(); // flip if ball is on the opposite side
-
-  // push ball outside along normal by penetration amount
-  const penetration = ballRadius - Math.abs(signedDistance);
-  if (penetration > 0) {
-    golfBall.position.addScaledVector(normalUsed, penetration + 0.001);
-    // reflect velocity and damp
-    ballVelocity.reflect(normalUsed).multiplyScalar(0.75);
+  if (wallBox.intersectsSphere(ballSphere)) {
+    const signedDistance = plane.distanceToPoint(golfBall.position);
+    const penetration = ballRadius - Math.abs(signedDistance);
+    if (penetration > 0) {
+      const correction = worldNormal.clone().multiplyScalar(penetration + 0.01);
+      if (signedDistance < 0) correction.negate();
+      golfBall.position.add(correction);
+      ballVelocity.reflect(worldNormal).multiplyScalar(0.7);
+    }
   }
 }
 
@@ -726,8 +747,8 @@ function animate() {
   if (gameState.mode !== "playing") return;
   if (gameState.waitingForContinue) return;
 
-  // --- NEW: velocity cap ---
-  const maxSpeed = 1.2;
+  // --- Velocity cap before movement/collision ---
+  const maxSpeed = 0.8; // stricter than before
   if (ballVelocity.length() > maxSpeed) {
     ballVelocity.setLength(maxSpeed);
   }
@@ -735,39 +756,37 @@ function animate() {
   // Movement physics
   golfBall.position.add(ballVelocity);
 
-// --- Improved Hole Logic (with funnel effect) ---
-if (hole && !inHole) {
-  const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
-  const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
-  const distXZ = holePosXZ.distanceTo(ballPosXZ);
+  // --- Improved Hole Logic (with funnel effect) ---
+  if (hole && !inHole) {
+    const holePosXZ = new THREE.Vector3(hole.position.x, 0, hole.position.z);
+    const ballPosXZ = new THREE.Vector3(golfBall.position.x, 0, golfBall.position.z);
+    const distXZ = holePosXZ.distanceTo(ballPosXZ);
 
-  if (distXZ < captureRadius) {
-    // Apply attraction toward hole center
-    const pullStrength = 0.01; // tweak for stronger funnel
-    const pullDir = holePosXZ.clone().sub(ballPosXZ).normalize();
-    ballVelocity.add(pullDir.multiplyScalar(pullStrength));
+    if (distXZ < captureRadius) {
+      // Apply attraction toward hole center
+      const pullStrength = 0.01; // tweak for stronger funnel
+      const pullDir = holePosXZ.clone().sub(ballPosXZ).normalize();
+      ballVelocity.add(pullDir.multiplyScalar(pullStrength));
 
-    // If close enough, force it into the hole
-    if (distXZ < holeRadius * 0.8) {
-      ballVelocity.set(0, -0.05, 0); // downward fall
-      golfBall.position.x += (holePosXZ.x - golfBall.position.x) * 0.2;
-      golfBall.position.z += (holePosXZ.z - golfBall.position.z) * 0.2;
-    }
+      // If close enough, force it into the hole
+      if (distXZ < holeRadius * 0.8) {
+        ballVelocity.set(0, -0.05, 0); // downward fall
+        golfBall.position.x += (holePosXZ.x - golfBall.position.x) * 0.2;
+        golfBall.position.z += (holePosXZ.z - golfBall.position.z) * 0.2;
+      }
 
-    // Check if ball has fallen through
-    if (golfBall.position.y <= -holeDepth) {
-      finishHole();
-    }
-  } else {
-    // Not near hole → keep ball above ground
-    if (golfBall.position.y < 0.5) {
-      golfBall.position.y = 0.5;
-      ballVelocity.y = 0;
+      // Check if ball has fallen through
+      if (golfBall.position.y <= -holeDepth) {
+        finishHole();
+      }
+    } else {
+      // Not near hole → keep ball above ground
+      if (golfBall.position.y < 0.5) {
+        golfBall.position.y = 0.5;
+        ballVelocity.y = 0;
+      }
     }
   }
-}
-
-
 
   // --- NEW: world bounds failsafe ---
   const playfieldLimit = 60;
@@ -777,41 +796,25 @@ if (hole && !inHole) {
     resetBall();
   }
 
-
-  if(gameState.currentHole === 1){
-    const ballRadius = 0.5;
-    const fieldHalfWidth = lawnWidth / 2;
-    const fieldHalfHeight = lawnHeight / 2;
-    if (golfBall.position.x > fieldHalfWidth - ballRadius) {
-      golfBall.position.x = fieldHalfWidth - ballRadius;
-      ballVelocity.x *= -0.7;
-    }
-    if (golfBall.position.x < -fieldHalfWidth + ballRadius) {
-      golfBall.position.x = -fieldHalfWidth + ballRadius;
-      ballVelocity.x *= -0.7;
-    }
-    if (golfBall.position.z > fieldHalfHeight - ballRadius) {
-      golfBall.position.z = fieldHalfHeight - ballRadius;
-      ballVelocity.z *= -0.7;
-    }
-    if (golfBall.position.z < -fieldHalfHeight + ballRadius) {
-      golfBall.position.z = -fieldHalfHeight + ballRadius;
-      ballVelocity.z *= -0.7;
-    }
+  // --- Collisions ---
+  if (gameState.currentHole === 1) {
+    if (topBorder) resolveBoxCollision(topBorder);
+    if (bottomBorder) resolveBoxCollision(bottomBorder);
+    if (leftBorder) resolveBoxCollision(leftBorder);
+    if (rightBorder) resolveBoxCollision(rightBorder);
   }
 
   if (gameState.currentHole === 2) {
-    // resolve rectangular borders (use the same function for each border)
     resolveBoxCollision(arm1RightBorder);
     resolveBoxCollision(arm1LeftBorder);
-    resolveBoxCollision(bottomBorder);
+    resolveBoxCollision(arm1BottomBorder);
     resolveBoxCollision(arm2LeftBorder);
     resolveBoxCollision(arm2Bottom);
     resolveBoxCollision(arm2Top);
 
-    // resolve angled hypotenuse as a finite plane
     resolveAngledCollision(hypotenuse);
   }
+
   // --- NEW: friction and stop condition ---
   ballVelocity.multiplyScalar(friction);
   if (ballVelocity.length() < 0.002) ballVelocity.set(0, 0, 0);
@@ -829,6 +832,13 @@ window.addEventListener('keydown', (e) => {
     } else {
       showTitle();
     }
+  }
+});
+
+// quick reset with ESC
+window.addEventListener('keydown', (e) => {
+  if (e.code === "Escape" && gameState.mode === "playing") {
+    resetBall();
   }
 });
 
